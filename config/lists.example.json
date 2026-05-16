@@ -1,0 +1,13 @@
+{
+  "feeds": {
+    "turris_greylist": {
+      "type": "turris",
+      "url": "https://www.turris.com/greylist-data/greylist-latest.csv",
+      "refresh_minutes": 60,
+      "services": {
+        "ssh": { "enabled": true },
+        "https": { "enabled": false }
+      }
+    }
+  }
+}
