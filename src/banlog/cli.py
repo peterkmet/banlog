@@ -2,9 +2,9 @@ import argparse
 import logging
 import sys
 
+from banlog import nft, sync
 from banlog.config import load_config
 from banlog.db import open_db
-from banlog import nft, sync
 from banlog.utils import parse_ip
 
 DEFAULT_CONFIG = "/etc/banlog/lists.json"
@@ -14,10 +14,9 @@ DEFAULT_DB = "/var/lib/banlog/banlog.db"
 def cmd_sync(args: argparse.Namespace) -> int:
     config = load_config(args.config)
     db = open_db(args.db)
-    services = list({
-        svc for fc in config.feeds.values()
-        for svc, sc in fc.services.items() if sc.enabled
-    })
+    services = list(
+        {svc for fc in config.feeds.values() for svc, sc in fc.services.items() if sc.enabled}
+    )
     try:
         nft.ensure_table_and_sets(services)
     except nft.NftError as e:
@@ -45,7 +44,11 @@ def cmd_status(args: argparse.Namespace) -> int:
     print("-" * 72)
     for row in rows:
         last = str(row["finished_ts"]) if row["finished_ts"] else "never"
-        print(f"{row['source']:<30} {row['service']:<10} {row['active_count']:>8}  {last:<12}  {row['last_status'] or '-'}")
+        status = row["last_status"] or "-"
+        print(
+            f"{row['source']:<30} {row['service']:<10}"
+            f" {row['active_count']:>8}  {last:<12}  {status}"
+        )
     return 0
 
 
@@ -56,9 +59,7 @@ def cmd_history(args: argparse.Namespace) -> int:
         logging.error("Invalid IP address: %s", args.ip)
         return 2
     db = open_db(args.db)
-    rows = db.execute(
-        "SELECT * FROM blocked_ips WHERE ip=? ORDER BY start_ts", (ip,)
-    ).fetchall()
+    rows = db.execute("SELECT * FROM blocked_ips WHERE ip=? ORDER BY start_ts", (ip,)).fetchall()
     if not rows:
         print(f"No history for {ip}")
         return 0
@@ -66,7 +67,10 @@ def cmd_history(args: argparse.Namespace) -> int:
     print("-" * 80)
     for row in rows:
         end = str(row["end_ts"]) if row["end_ts"] else "active"
-        print(f"{row['id']:>6}  {row['source']:<22}  {row['service']:<10}  {row['start_ts']:>12}  {end:>12}  {row['metadata'] or ''}")
+        print(
+            f"{row['id']:>6}  {row['source']:<22}  {row['service']:<10}"
+            f"  {row['start_ts']:>12}  {end:>12}  {row['metadata'] or ''}"
+        )
     return 0
 
 
@@ -82,7 +86,9 @@ def cmd_list(args: argparse.Namespace) -> int:
     query += " ORDER BY start_ts"
     for row in db.execute(query, params):
         end = str(row["end_ts"]) if row["end_ts"] else "active"
-        print(f"{row['ip']:<18}  {row['source']:<22}  {row['service']:<10}  {row['start_ts']}  {end}")
+        print(
+            f"{row['ip']:<18}  {row['source']:<22}  {row['service']:<10}  {row['start_ts']}  {end}"
+        )
     return 0
 
 
@@ -120,7 +126,10 @@ def main() -> None:
     sub.add_parser("feeds")
 
     args = parser.parse_args()
-    logging.basicConfig(level=getattr(logging, args.log_level.upper()), format="%(levelname)s %(message)s")
+    logging.basicConfig(
+        level=getattr(logging, args.log_level.upper()),
+        format="%(levelname)s %(message)s",
+    )
 
     handlers = {
         "sync": cmd_sync,

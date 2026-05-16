@@ -1,7 +1,6 @@
 import importlib.resources
 import sqlite3
 
-
 LATEST_VERSION = 1
 
 

@@ -3,9 +3,9 @@ import time
 from dataclasses import dataclass, field
 from sqlite3 import Connection
 
+from banlog import nft
 from banlog.config import Config, FeedConfig
 from banlog.feeds import FEED_REGISTRY
-from banlog import nft
 
 log = logging.getLogger(__name__)
 
@@ -47,7 +47,9 @@ def _close_orphans(config: Config, db: Connection, now: int) -> None:
         for svc, sc in fc.services.items()
         if sc.enabled
     }
-    orphans = [(r["source"], r["service"]) for r in active if (r["source"], r["service"]) not in enabled]
+    orphans = [
+        (r["source"], r["service"]) for r in active if (r["source"], r["service"]) not in enabled
+    ]
     if not orphans:
         return
     with db:
@@ -101,7 +103,8 @@ def _process_feed(
     total_added = total_removed = 0
     for svc in enabled_services:
         active_ips = {
-            r["ip"] for r in db.execute(
+            r["ip"]
+            for r in db.execute(
                 "SELECT ip FROM blocked_ips WHERE source=? AND service=? AND end_ts IS NULL",
                 (feed_name, svc),
             )
@@ -112,7 +115,8 @@ def _process_feed(
         with db:
             for ip in removed:
                 db.execute(
-                    "UPDATE blocked_ips SET end_ts=? WHERE ip=? AND source=? AND service=? AND end_ts IS NULL",
+                    "UPDATE blocked_ips SET end_ts=?"
+                    " WHERE ip=? AND source=? AND service=? AND end_ts IS NULL",
                     (now, ip, feed_name, svc),
                 )
             for ip in added:
@@ -126,24 +130,29 @@ def _process_feed(
         (now, total_added, total_removed, len(new_ips), run_id),
     )
     db.commit()
-    report.results.append(FeedSyncResult(
-        source=feed_name, status="success",
-        added=total_added, removed=total_removed, total=len(new_ips),
-    ))
+    report.results.append(
+        FeedSyncResult(
+            source=feed_name,
+            status="success",
+            added=total_added,
+            removed=total_removed,
+            total=len(new_ips),
+        )
+    )
     log.info("Feed '%s': +%d -%d total=%d", feed_name, total_added, total_removed, len(new_ips))
 
 
 def _rebuild_sets(config: Config, db: Connection, report: SyncReport) -> None:
     services = {
-        svc
-        for fc in config.feeds.values()
-        for svc, sc in fc.services.items()
-        if sc.enabled
+        svc for fc in config.feeds.values() for svc, sc in fc.services.items() if sc.enabled
     }
     for svc in sorted(services):
-        ips = {r["ip"] for r in db.execute(
-            "SELECT DISTINCT ip FROM blocked_ips WHERE service=? AND end_ts IS NULL", (svc,)
-        )}
+        ips = {
+            r["ip"]
+            for r in db.execute(
+                "SELECT DISTINCT ip FROM blocked_ips WHERE service=? AND end_ts IS NULL", (svc,)
+            )
+        }
         try:
             nft.replace_set(svc, ips)
             log.info("Updated banlog_%s: %d IPs", svc, len(ips))
